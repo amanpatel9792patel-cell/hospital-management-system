@@ -1,0 +1,159 @@
+import { useEffect, useState } from "react";
+
+import EntityForm from "../components/EntityForm.jsx";
+
+import {
+  getAppointmentById,
+  updateAppointment,
+} from "../services/appointmentService.js";
+
+import { getPatients } from "../services/patientService.js";
+import { getDoctors } from "../services/doctorService.js";
+
+export default function EditAppointment() {
+  const [patients, setPatients] = useState([]);
+  const [doctors, setDoctors] = useState([]);
+  const [loadingOptions, setLoadingOptions] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const loadOptions = async () => {
+      try {
+        setLoadingOptions(true);
+        setError("");
+
+        const [patientsResponse, doctorsResponse] =
+          await Promise.all([
+            getPatients(),
+            getDoctors(),
+          ]);
+
+        setPatients(
+          Array.isArray(patientsResponse.data)
+            ? patientsResponse.data
+            : []
+        );
+
+        setDoctors(
+          Array.isArray(doctorsResponse.data)
+            ? doctorsResponse.data
+            : []
+        );
+      } catch (err) {
+        console.error(
+          "Failed to load patients and doctors:",
+          err
+        );
+
+        setError(
+          err.response?.data?.message ||
+            "Failed to load patients and doctors."
+        );
+      } finally {
+        setLoadingOptions(false);
+      }
+    };
+
+    loadOptions();
+  }, []);
+
+  if (loadingOptions) {
+    return (
+      <div className="page">
+        <div className="loading">
+          Loading patients and doctors...
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="page">
+        <div className="error-message">
+          {error}
+        </div>
+      </div>
+    );
+  }
+
+  const patientOptions = patients.map((patient) => ({
+    value: patient.id,
+    label: `${patient.name} (ID: ${patient.id})`,
+  }));
+
+  const doctorOptions = doctors.map((doctor) => ({
+    value: doctor.id,
+    label: `${doctor.name} - ${doctor.specialization}`,
+  }));
+
+  return (
+    <EntityForm
+      title="Edit Appointment"
+      description="Update appointment information"
+      fields={[
+        {
+          name: "patientId",
+          label: "Patient",
+          type: "select",
+          options: patientOptions,
+          placeholder: "Select Patient",
+        },
+        {
+          name: "doctorId",
+          label: "Doctor",
+          type: "select",
+          options: doctorOptions,
+          placeholder: "Select Doctor",
+        },
+        {
+          name: "appointmentDate",
+          label: "Appointment Date",
+          type: "date",
+        },
+        {
+          name: "appointmentTime",
+          label: "Appointment Time",
+          type: "time",
+        },
+        {
+          name: "status",
+          label: "Status",
+          type: "select",
+          options: [
+            {
+              value: "Scheduled",
+              label: "Scheduled",
+            },
+            {
+              value: "Completed",
+              label: "Completed",
+            },
+            {
+              value: "Cancelled",
+              label: "Cancelled",
+            },
+          ],
+          placeholder: "Select Status",
+        },
+        {
+          name: "reason",
+          label: "Reason",
+          type: "textarea",
+        },
+      ]}
+      initial={{
+        patientId: "",
+        doctorId: "",
+        appointmentDate: "",
+        appointmentTime: "",
+        status: "Scheduled",
+        reason: "",
+      }}
+      submitText="Update Appointment"
+      successTo="/appointments"
+      load={getAppointmentById}
+      onSubmit={updateAppointment}
+    />
+  );
+}
